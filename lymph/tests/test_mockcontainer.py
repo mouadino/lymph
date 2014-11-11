@@ -19,9 +19,9 @@ class Upper(Interface):
     def upper(self, text=None):
         return text.upper()
 
-    @lymph.rpc(raises=(RuntimeError,))
+    @lymph.rpc(raises=(ValueError,))
     def fail(self):
-        raise RuntimeError()
+        raise ValueError('foobar')
 
     @lymph.raw_rpc()
     def just_ack(self, channel):
@@ -70,7 +70,8 @@ class BasicMockTest(unittest.TestCase):
         })
 
     def test_error(self):
-        self.assertRaises(ErrorReply, self.client.request, self.upper_container.endpoint, 'upper.fail', {})
+        with self.assertRaisesRegexp(ErrorReply, 'ValueError: foobar'):
+            self.client.request(self.upper_container.endpoint, 'upper.fail', {})
 
     def test_ack(self):
         reply = self.client.request(self.upper_container.endpoint, 'upper.just_ack', {})
