@@ -31,6 +31,8 @@ class RequestChannel(Channel):
         except gevent.queue.Empty:
             raise Timeout(self.request)
 
+    # FIXME: This is not right ? channels should be removed
+    # by the server.
     def close(self):
         del self.container.channels[self.request.id]
 
