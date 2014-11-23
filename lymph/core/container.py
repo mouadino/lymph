@@ -21,10 +21,11 @@ from lymph.core.channels import RequestChannel, ReplyChannel
 from lymph.core.events import Event
 from lymph.core.messages import Message
 from lymph.core.monitoring import Monitor
-from lymph.core.services import ServiceInstance
+from lymph.core.services import Service
 from lymph.core.interfaces import DefaultInterface
 from lymph.core.plugins import Hook
 from lymph.core import trace
+from lymph.serializers.base import BaseSerializer
 
 
 logger = logging.getLogger(__name__)
@@ -185,11 +186,18 @@ class ServiceContainer(object):
         self.event_system.unsubscribe(self, handler)
 
     def get_instance_description(self, service_type=None):
-        return {
+        data = {
             'endpoint': self.endpoint,
             'identity': self.identity,
             'log_endpoint': self.log_endpoint,
         }
+        if service_type is not None:
+            interface = self.installed_interfaces[service_type]
+            if interface.supported_serializations:
+                data['supported_serializations'] = interface.supported_serializations
+            else:
+                data['supported_serializations'] = BaseSerializer.get_available_serializations()
+        return data
 
     def start(self, register=True):
         self.running = True
@@ -256,7 +264,9 @@ class ServiceContainer(object):
     def lookup(self, address):
         if '://' not in address:
             return self.service_registry.get(address)
-        return ServiceInstance(self, address)
+        service = Service(self)
+        service.update(address, endpoint=address)
+        return service
 
     def discover(self):
         return self.service_registry.discover()
@@ -268,10 +278,13 @@ class ServiceContainer(object):
             return
         service = self.lookup(address)
         try:
-            connection = service.connect()
+            instance, connection = service.connect()
         except NotConnected:
             logger.error('cannot send message (no connection): %s', msg)
             return
+
+        msg.content_type = instance.get_best_serialization_type()
+
         self.send_sock.send(connection.endpoint.encode('utf-8'), flags=zmq.SNDMORE)
         self.send_sock.send_multipart(msg.pack_frames())
         logger.debug('-> %s to %s', msg, connection.endpoint)
@@ -284,6 +297,7 @@ class ServiceContainer(object):
 
     def send_request(self, address, subject, body, headers=None):
         msg = Message(
+            content_type=None,
             msg_type=Message.REQ,
             subject=subject,
             body=body,
@@ -297,6 +311,7 @@ class ServiceContainer(object):
 
     def send_reply(self, msg, body, msg_type=Message.REP, headers=None):
         reply_msg = Message(
+            content_type=msg.content_type,
             msg_type=msg_type,
             subject=msg.id,
             body=body,

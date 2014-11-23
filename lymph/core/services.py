@@ -5,7 +5,8 @@ import random
 import six
 
 from lymph.utils import observables
-from lymph.exceptions import NotConnected
+from lymph.exceptions import NotConnected, UnsupportedSerialization
+from lymph.serializers.base import BaseSerializer
 
 
 logger = logging.getLogger(__name__)
@@ -17,16 +18,39 @@ UPDATED = 'UPDATED'
 
 
 class ServiceInstance(object):
+
     def __init__(self, container, endpoint=None, identity=None, **info):
         self.container = container
         self.identity = identity if identity else hashlib.md5(endpoint.encode('utf-8')).hexdigest()
         self.update(endpoint, **info)
         self.connection = None
 
-    def update(self, endpoint, log_endpoint=None, name=None):
+    def update(self, endpoint, log_endpoint=None, name=None, supported_serializations=None):
         self.endpoint = endpoint
         self.log_endpoint = log_endpoint
         self.name = name
+        self.supported_serializations = supported_serializations
+
+    def get_best_serialization_type(self):
+        """Get best serialization that both client and instance support.
+
+        Find the first match from instance's ``supported_serialization`` that is
+        also supported by the current client, since client and service may be using
+        different lymph versions with different serializations type available.
+
+        :return: Serialization type as string or :global:``DEFAULT_CONTENT_TYPE``
+                 if instance doesn't have any preference.
+        :raises: UnsupportedSerialization in case not match was found.
+        """
+        client_serializations = BaseSerializer.get_available_serializations()
+        if self.supported_serializations is None:
+            return client_serializations[0]
+        for res in self.supported_serializations:
+            if res in client_serializations:
+                return res
+        raise UnsupportedSerialization(
+            'No serialization found'
+        )
 
     def connect(self):
         self.connection = self.container.connect(self.endpoint)
@@ -66,7 +90,7 @@ class Service(observables.Observable):
         if not choices:
             raise NotConnected()
         instance = random.choice(choices)
-        return instance.connect()
+        return instance, instance.connect()
 
     def disconnect(self):
         for instance in self:

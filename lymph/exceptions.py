@@ -33,3 +33,7 @@ class SocketNotCreated(Exception):
 
 class NotConnected(Exception):
     pass
+
+
+class UnsupportedSerialization(Exception):
+    pass

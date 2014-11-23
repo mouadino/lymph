@@ -81,7 +81,7 @@ class ZookeeperServiceRegistry(BaseServiceRegistry):
             path, watch=functools.partial(self.on_service_watch, service))
         value, znode = result.get()
         items = six.iteritems(json.loads(value.decode('utf-8')))
-        return {str(k): str(v) for k, v in items}
+        return {str(k): v for k, v in items}
 
     def discover(self):
         result = self.client.get_children_async(
@@ -124,7 +124,7 @@ class ZookeeperServiceRegistry(BaseServiceRegistry):
 
     def register(self, service_name, timeout=1):
         path = self._get_zk_path(service_name, self.container.identity)
-        value = json.dumps(self.container.get_instance_description())
+        value = json.dumps(self.container.get_instance_description(service_name))
         result = self.client.create_async(
             path,
             value.encode('utf-8'),

@@ -71,11 +71,36 @@ _extension_type_serializers = {
 
 
 class BaseSerializer(object):
-    def __init__(self, dumps=None, loads=None, load=None, dump=None):
+    __serializers = {}
+    __priorities = {}
+
+    def __init__(self, type, priority, dumps=None, loads=None, load=None, dump=None):
         self._dumps = dumps
         self._loads = loads
         self._load = load
         self._dump = dump
+        self._type = type
+
+        self.__serializers[type] = self
+        if priority in self.__priorities.values():
+            raise ValueError("Priority %s is already used" % priority)
+        self.__priorities[type] = priority
+
+    @classmethod
+    def get_instance(cls, type):
+        """Get serializer instance corresponding to the given ``type``.
+
+        :param type: string representing serialization type e.g. json, msgpack ...
+        :return: Instance that serialize messages into given type.
+        :raises KeyError: If the serialization type is unknown.
+
+        """
+        return cls.__serializers[type]
+
+    @classmethod
+    def get_available_serializations(cls):
+        """Get available serializations format sorted by priority."""
+        return sorted(cls.__serializers, key=cls.__priorities.__getitem__)
 
     def dump_object(self, obj):
         obj_type = type(obj)
@@ -106,12 +131,25 @@ class BaseSerializer(object):
     def load(self, f):
         return self._load(f, object_hook=self.load_object)
 
+    def __str__(self):
+        return 'Serializer: %s' % self._type
+
+    __repr__ = __str__
+
 
 msgpack_serializer = BaseSerializer(
+    'msgpack',
+    priority=10,
     dumps=functools.partial(msgpack.dumps, use_bin_type=True),
     loads=functools.partial(msgpack.loads, encoding='utf-8'),
     dump=functools.partial(msgpack.dump, use_bin_type=True),
     load=functools.partial(msgpack.load, encoding='utf-8'),
 )
 
-json_serializer = BaseSerializer(dumps=json.dumps, loads=json.loads, dump=json.dump, load=json.load)
+json_serializer = BaseSerializer(
+    'json',
+    priority=20,
+    dumps=json.dumps,
+    loads=json.loads,
+    dump=json.dump,
+    load=json.load)

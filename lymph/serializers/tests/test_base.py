@@ -86,7 +86,7 @@ class SerializerBaseTest(unittest.TestCase):
                          set(["as", "this", "is", "a", "set"]))
 
     def test_BaseSerializer_dump_object(self):
-        serializer = base.BaseSerializer(dumps=json.dumps, loads=json.loads, dump=json.dump, load=json.load)
+        serializer = base.BaseSerializer.get_instance('json')
         self.assertEqual(serializer.dump_object(datetime.datetime(2014, 9, 12, 8, 33, 12, 34)),
                          {'__type__': 'datetime', '_': '2014-09-12T08:33:12Z'})
         self.assertEqual(serializer.dump_object(datetime.date(2014, 9, 12)),
@@ -95,7 +95,7 @@ class SerializerBaseTest(unittest.TestCase):
                          {'__type__': 'Decimal', '_': '3.1415'})
 
     def test_BaseSerializer_dump(self):
-        serializer = base.BaseSerializer(dumps=json.dumps, loads=json.loads, dump=json.dump, load=json.load)
+        serializer = base.BaseSerializer.get_instance('json')
         self.assertJsonEquals(
             serializer.dumps(datetime.datetime(2014, 9, 12, 8, 33, 12, 34)),
             {"__type__": "datetime", "_": "2014-09-12T08:33:12Z"}
@@ -110,7 +110,7 @@ class SerializerBaseTest(unittest.TestCase):
         )
 
     def test_BaseSerializer_load_object(self):
-        serializer = base.BaseSerializer(dumps=json.dumps, loads=json.loads, dump=json.dump, load=json.load)
+        serializer = base.BaseSerializer.get_instance('json')
         self.assertEqual(serializer.load_object(
                          {'__type__': 'datetime', '_': '2014-09-12T08:33:12Z'}),
                          datetime.datetime(2014, 9, 12, 8, 33, 12))
@@ -128,7 +128,7 @@ class SerializerBaseTest(unittest.TestCase):
                          set(['this', 'a', 'as', 'set', 'is']))
 
     def test_BaseSerializer_loads(self):
-        serializer = base.BaseSerializer(dumps=json.dumps, loads=json.loads, dump=json.dump, load=json.load)
+        serializer = base.BaseSerializer.get_instance('json')
         normal_datetime = '{"__type__": "datetime", "_": "2014-09-12T08:33:12Z"}'
         normal_date = '{"__type__": "date", "_": "2014-09-12"}'
         number = '{"__type__": "Decimal", "_": "3.1415"}'

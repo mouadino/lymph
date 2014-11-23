@@ -1,5 +1,5 @@
-from lymph.serializers import msgpack_serializer
 from lymph.utils import make_id
+from lymph.serializers.base import BaseSerializer
 
 
 class Message(object):
@@ -9,7 +9,8 @@ class Message(object):
     NACK = b'NACK'
     ERROR = b'ERROR'
 
-    def __init__(self, msg_type, subject, packed_body=None, headers=None, packed_headers=None, msg_id=None, source=None, lazy=False, **kwargs):
+    def __init__(self, content_type, msg_type, subject, packed_body=None, headers=None, packed_headers=None, msg_id=None, source=None, **kwargs):
+        self.content_type = content_type
         self.id = msg_id if msg_id else make_id()
         self.type = msg_type
         self.subject = subject
@@ -30,11 +31,10 @@ class Message(object):
             raise TypeError("Message requires either 'body' or 'packed_body'")
 
         self._packed_body = packed_body
-        if not lazy:
-            self.body
-            self.packed_body
-            self.headers
-            self.packed_headers
+
+    @property
+    def _serializer(self):
+        return BaseSerializer.get_instance(self.content_type)
 
     def is_request(self):
         return self.type == self.REQ
@@ -48,30 +48,31 @@ class Message(object):
     @property
     def body(self):
         if not hasattr(self, '_body'):
-            self._body = msgpack_serializer.loads(self._packed_body)
+            self._body = self._serializer.loads(self._packed_body)
         return self._body
 
     @property
     def packed_body(self):
         if self._packed_body is None:
-            self._packed_body = msgpack_serializer.dumps(self._body)
+            self._packed_body = self._serializer.dumps(self._body)
         return self._packed_body
 
     @property
     def headers(self):
         if self._headers is None:
-            self._headers = msgpack_serializer.loads(self._packed_headers)
+            self._headers = self._serializer.loads(self._packed_headers)
         return self._headers
 
     @property
     def packed_headers(self):
         if self._packed_headers is None:
-            self._packed_headers = msgpack_serializer.dumps(self._headers)
+            self._packed_headers = self._serializer.dumps(self._headers)
         return self._packed_headers
 
     def pack_frames(self):
         return [
             self.id.encode('utf-8'),
+            self.content_type.encode('utf-8'),
             self.type,
             self.subject.encode('utf-8'),
             self.packed_headers,
@@ -81,18 +82,20 @@ class Message(object):
     @classmethod
     def unpack_frames(self, frames):
         try:
-            source, msg_id, msg_type, subject, headers, body = frames
+            source, msg_id, content_type, msg_type, subject, headers, body = frames
         except ValueError:
             raise ValueError('bad message frame count: got %s, expected 6' % len(frames))
 
         try:
             msg_id = msg_id.decode('utf-8')
+            content_type = content_type.decode('utf-8')
             subject = subject.decode('utf-8')
             source = source.decode('utf-8')
         except UnicodeDecodeError:
             raise ValueError('message id, subject, and source must be utf-8 encoded.')
 
         return Message(
+            content_type=content_type,
             msg_type=msg_type,
             subject=subject,
             msg_id=msg_id,

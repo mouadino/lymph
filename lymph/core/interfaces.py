@@ -66,6 +66,7 @@ class Proxy(Component):
 @six.add_metaclass(InterfaceBase)
 class Interface(object):
     register_with_coordinator = True
+    supported_serializations = []
 
     def __init__(self, container, name=None):
         self.container = container

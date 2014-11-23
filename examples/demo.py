@@ -1,6 +1,5 @@
 from __future__ import print_function, unicode_literals
 
-import random
 import gevent
 import lymph
 from lymph.core import trace

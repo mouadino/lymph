@@ -60,9 +60,14 @@ class MockServiceContainer(ServiceContainer):
         return self.connections[endpoint]
 
     def send_message(self, address, msg):
-        dst = self.lookup(address).connect().endpoint
+        _, dst = self.lookup(address).connect()
+        dst = dst.endpoint
         dst = self._mock_network.service_containers[dst]
 
+        # FIXME: We should be able to modify content type for
+        # testing purposes.
+        if not msg.content_type:
+            msg.content_type = 'msgpack'
         # Exercise the msgpack packing and unpacking.
         frames = msg.pack_frames()
         frames.insert(0, self.endpoint.encode('utf-8'))
