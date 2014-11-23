@@ -55,7 +55,9 @@ class InstanceCommand(Command):
             cls = import_object(cls_name)
             container.install(cls)
 
-        if self.args.get('--debug'):
+        debug = self.args['--debug']
+        if debug:
+            container.debug = True
             from gevent.backdoor import BackdoorServer
             backdoor = BackdoorServer(('127.0.0.1', 5005), locals={'container': container})
             gevent.spawn(backdoor.serve_forever)

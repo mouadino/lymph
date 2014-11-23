@@ -89,6 +89,9 @@ class Node(Interface):
             env['LYMPH_NODE'] = self.container.endpoint
             env['LYMPH_NODE_IP'] = self.container.ip
             env['LYMPH_SHARED_SOCKET_FDS'] = shared_fds
+            env['LYMPH_LOGLEVEL'] = logging.getLevelName(
+                logging.getLogger('lymph').level)
+            env['LYMPH_DEBUG'] = str(self.container.debug)
             for i in range(num):
                 p = Process(cmd.split(' '), env=env)
                 self.processes.append(p)

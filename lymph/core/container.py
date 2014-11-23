@@ -50,6 +50,7 @@ class ServiceContainer(object):
         self.endpoint = None
         self.service_name = service_name
         self.bound = False
+        self.debug = False
 
         self.request_counts = collections.Counter()
 

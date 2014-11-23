@@ -15,7 +15,7 @@ Common Options:
   --help, -h                   Print this help message and exit.
   --logfile=<file>             Redirect log output to the given file.
   --loglevel=<level>           Set the log level to one of DEBUG, INFO, WARNING,
-                               ERROR. [default: WARNING]
+                               ERROR. [default: WARNING] [envvar: LYMPH_LOGLEVEL]
   --version                    Show the lymph version and exit.
   --color                      Force colored output.
   --no-color                   Disable colored output.
@@ -31,6 +31,7 @@ Instance Options:
                                python files in the current working directory
                                change. The process will be restarted by the
                                node. Do not use this in production.
+  --debug                      Enable gevent backdoor terminal [envvar: LYMPH_DEBUG]
     """,
 })}
 
@@ -94,4 +95,3 @@ def get_command_classes():
 
 def get_command_class(name):
     return get_command_classes()[name]
-

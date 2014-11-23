@@ -1,7 +1,7 @@
 http://py-monotime.googlecode.com/archive/5fb3eb35a8e25140204e957bd010991bfe8758e3.zip#egg=monotime
 PyYAML==3.11
 Werkzeug==0.9.4
-docopt==0.6.1
+git+https://github.com/mouadino/docopt.git@envvar#egg=docopt
 git+https://github.com/surfly/gevent.git#egg=gevent
 kazoo==1.3.1
 kombu==3.0.16
