@@ -9,6 +9,7 @@ before_install:
 
 install:
     - sudo apt-get install zookeeper
+    - pip install coveralls
     - pip install "cython==0.20.1"
     - pip install -r requirements/base.txt
     - pip install .
@@ -20,8 +21,13 @@ before_script:
 script:
     - mkdir -p tmp
     - pushd tmp
-    - nosetests --with-lymph lymph
+    - nosetests --with-coverage --cover-package lymph --with-lymph lymph
     - popd
+
+after_success:
+  - cd tmp
+  - coveralls debug
+
 
 notifications:
     email: false

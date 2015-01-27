@@ -1,6 +1,9 @@
 .. image:: https://travis-ci.org/deliveryhero/lymph.svg?branch=master
     :target: https://travis-ci.org/deliveryhero/lymph
 
+.. image:: https://coveralls.io/repos/deliveryhero/lymph/badge.svg
+    :target: https://coveralls.io/r/deliveryhero/lymph
+
 
 Lymph
 =====
