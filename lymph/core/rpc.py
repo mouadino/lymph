@@ -77,7 +77,6 @@ class ZmqRPCServer(object):
             logger.debug("connect(%s)", endpoint)
             self.connections[endpoint] = Connection(self, endpoint)
             self.send_sock.connect(endpoint)
-            gevent.sleep(0.02)
         return self.connections[endpoint]
 
     def disconnect(self, endpoint, socket=False):
