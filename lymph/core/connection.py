@@ -2,13 +2,13 @@
 from __future__ import division, unicode_literals
 
 import gevent
-from gevent.event import Event
 import math
 import os
 import time
 import logging
 
 from lymph.utils import SampleWindow
+from lymph.core import trace
 from lymph.exceptions import Timeout
 
 logger = logging.getLogger(__name__)
@@ -39,7 +39,6 @@ class Connection(object):
 
         self.pid = os.getpid()
 
-        self.heartbeat_started = Event()
         self.heartbeat_loop_greenlet = self.server.container.spawn(self.heartbeat_loop)
 
     def __str__(self):
@@ -56,6 +55,8 @@ class Connection(object):
         return -math.log10(p)
 
     def heartbeat_loop(self):
+        trace.set_id()
+        logger.debug('Starting connection hearbeat to %s', self.endpoint)
         while True:
             start = time.monotonic()
             channel = self.server.ping(self.endpoint)
@@ -70,7 +71,6 @@ class Connection(object):
                 self.explicit_heartbeat_count += 1
                 self.last_seen = time.monotonic()
             self.update_status()
-            self.heartbeat_started.set()
             self.log_stats()
             gevent.sleep(self.heartbeat_interval)
 
@@ -111,7 +111,6 @@ class Connection(object):
         self.sent_message_count += 1
 
     def is_alive(self):
-        self.heartbeat_started.wait()
         return self.status == RESPONSIVE
 
     def stats(self):

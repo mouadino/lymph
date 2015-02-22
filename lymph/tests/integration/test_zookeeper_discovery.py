@@ -37,15 +37,15 @@ class ZookeeperIntegrationTest(LymphIntegrationTestCase):
         self.assertEqual(next(iter(service)).endpoint, self.upper_container.endpoint)
 
     def test_upper(self):
-        reply = self.lymph_client.request(self.upper_container.endpoint, 'upper.upper', {'text': 'foo'})
+        reply = self.lymph_client.request('upper', 'upper.upper', {'text': 'foo'})
         self.assertEqual(reply.body, 'FOO')
 
     def test_ping(self):
-        reply = self.lymph_client.request(self.upper_container.endpoint, 'lymph.ping', {'payload': 42})
+        reply = self.lymph_client.request('upper', 'lymph.ping', {'payload': 42})
         self.assertEqual(reply.body, 42)
 
     def test_status(self):
-        reply = self.lymph_client.request(self.upper_container.endpoint, 'lymph.status', {})
+        reply = self.lymph_client.request('upper', 'lymph.status', {})
         self.assertEqual(reply.body, {
             'endpoint': self.upper_container.endpoint,
             'identity': self.upper_container.identity,

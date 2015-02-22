@@ -6,6 +6,9 @@ from lymph.core.services import Service
 
 @six.add_metaclass(ABCMeta)
 class BaseServiceRegistry(object):
+
+    ServiceCls = Service
+
     def __init__(self):
         self.cache = {}
 
@@ -19,7 +22,7 @@ class BaseServiceRegistry(object):
         try:
             service = self.cache[service_name]
         except KeyError:
-            service = Service(self.container, name=service_name)
+            service = self.ServiceCls(self.container, name=service_name)
             self.lookup(service, **kwargs)
             self.cache[service_name] = service
         return service

@@ -1,6 +1,5 @@
 from __future__ import print_function, unicode_literals
 
-import random
 import gevent
 import lymph
 from lymph.core import trace
@@ -9,7 +8,7 @@ from lymph.core import trace
 class Client(lymph.Interface):
     delay = .1
 
-    echo = lymph.proxy('echo', timeout=2)
+    echo = lymph.proxy('echo')
 
     def on_start(self):
         super(Client, self).on_start()
@@ -29,7 +28,8 @@ class Client(lymph.Interface):
             trace.set_id()
             try:
                 result = self.echo.upper(text='foo_%s' % i)
-            except lymph.RpcError:
+            except Exception as ex:
+                print('Failed with ', ex)
                 continue
             print("result = %s" % result)
             i += 1

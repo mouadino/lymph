@@ -2,10 +2,11 @@ import hashlib
 import logging
 import random
 
+import gevent
 import six
 
 from lymph.utils import observables
-from lymph.exceptions import NotConnected
+from lymph.exceptions import ConnectionError
 
 
 logger = logging.getLogger(__name__)
@@ -39,7 +40,9 @@ class ServiceInstance(object):
             self.connection = None
 
     def is_alive(self):
-        return self.connection is None or self.connection.is_alive()
+        if self.connection is None:
+            self.connect()
+        return self.connection.is_alive()
 
 
 class Service(observables.Observable):
@@ -59,15 +62,15 @@ class Service(observables.Observable):
     def identities(self):
         return list(self.instances.keys())
 
-    def connect(self):
-        choices = [i for i in self if i.is_alive()]
-        if not choices:
-            logger.info("no live instance for %s", self.name)
-            choices = list(self.instances.values())
-        if not choices:
-            raise NotConnected()
-        instance = random.choice(choices)
-        return instance.connect()
+    def connect(self, tries=3):
+        for _ in range(tries):
+            choices = [i for i in self if i.is_alive()]
+            if choices:
+                instance = random.choice(choices)
+                return instance.connection
+            gevent.sleep(0.1)
+        logger.info("no live instance for %s", self.name)
+        raise ConnectionError("Can't establish connection with '%s' (gave up after %d tries)" % (self.name, tries))
 
     def disconnect(self):
         for instance in self:

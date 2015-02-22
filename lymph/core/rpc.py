@@ -13,7 +13,8 @@ from lymph.core.channels import RequestChannel, ReplyChannel
 from lymph.core.connection import Connection
 from lymph.core.messages import Message
 from lymph.core import trace
-from lymph.exceptions import NotConnected
+from lymph.exceptions import ConnectionError, NotConnected
+from lymph.utils import is_zmq_endpoint
 
 
 logger = logging.getLogger(__name__)
@@ -107,43 +108,46 @@ class ZmqRPCServer(object):
 
     def _send_message(self, address, msg):
         if not self.running:
-            # FIXME: This should raise an Error instead of failing silently.
             logger.error('cannot send message (container not started): %s', msg)
-            return
-        service = self.container.lookup(address)
-        try:
-            connection = service.connect()
-        except NotConnected:
-            logger.error('cannot send message (no connection): %s', msg)
-            return
+            raise RuntimeError('Container not running')
+
+        if is_zmq_endpoint(address):
+            try:
+                connection = self.connections[address]
+            except KeyError:
+                raise NotConnected('Endpoint %s is not associated to any service' % address)
+        else:
+            service = self.container.lookup(address)
+            try:
+                connection = service.connect()
+            except ConnectionError:
+                logger.exception('cannot send message to %s (no connection): %s', address, msg)
+                raise
         self.send_sock.send(connection.endpoint.encode('utf-8'), flags=zmq.SNDMORE)
         self.send_sock.send_multipart(msg.pack_frames())
         logger.debug('-> %s to %s', msg, connection.endpoint)
         connection.on_send(msg)
 
     def send_request(self, address, subject, body, headers=None):
-        msg = Message(
-            msg_type=Message.REQ,
-            subject=subject,
-            body=body,
-            source=self.endpoint,
-            headers=self.container.prepare_headers(headers),
-        )
+        msg = self._build_message(Message.REQ, subject, body, headers)
         channel = RequestChannel(msg, self)
         self.channels[msg.id] = channel
         self._send_message(address, msg)
         return channel
 
-    def send_reply(self, msg, body, msg_type=Message.REP, headers=None):
-        reply_msg = Message(
+    def send_reply(self, msg, body, headers=None, msg_type=Message.REP):
+        reply_msg = self._build_message(msg_type, msg.id, body, headers)
+        self._send_message(msg.source, reply_msg)
+        return reply_msg
+
+    def _build_message(self, msg_type, id, body, headers=None):
+        return Message(
             msg_type=msg_type,
-            subject=msg.id,
+            subject=id,
             body=body,
             source=self.endpoint,
             headers=self.container.prepare_headers(headers),
         )
-        self._send_message(msg.source, reply_msg)
-        return reply_msg
 
     def dispatch_request(self, msg):
         loglevel = self._get_loglevel(msg)

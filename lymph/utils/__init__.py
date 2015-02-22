@@ -43,6 +43,10 @@ def make_id():
     return uuid.uuid4().hex
 
 
+def is_zmq_endpoint(address):
+    return address.startswith(('tcp://', 'ipc://', 'inproc://', 'pgm://', 'epgm://'))
+
+
 _sqrt2 = math.sqrt(2)
 
 

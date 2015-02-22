@@ -13,7 +13,6 @@ import six
 from lymph.exceptions import RegistrationFailure, SocketNotCreated
 from lymph.core.events import Event
 from lymph.core.monitoring import Monitor
-from lymph.core.services import ServiceInstance, Service
 from lymph.core.rpc import ZmqRPCServer
 from lymph.core.interfaces import DefaultInterface
 from lymph.core.plugins import Hook
@@ -213,10 +212,7 @@ class ServiceContainer(object):
         return headers
 
     def lookup(self, address):
-        if '://' not in address:
-            return self.service_registry.get(address)
-        instance = ServiceInstance(self, address)
-        return Service(self, address, instances=[instance])
+        return self.service_registry.get(address)
 
     def discover(self):
         return self.service_registry.discover()

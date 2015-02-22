@@ -9,8 +9,9 @@ from lymph.core.container import ServiceContainer
 from lymph.core.connection import Connection
 from lymph.core.interfaces import Interface, Proxy
 from lymph.core.rpc import ZmqRPCServer
+from lymph.core.services import Service
 from lymph.core.messages import Message
-from lymph.discovery.static import StaticServiceRegistryHub
+from lymph.discovery.static import StaticServiceRegistry
 from lymph.events.local import LocalEventSystem
 from lymph.exceptions import RemoteError
 from lymph.client import Client
@@ -59,22 +60,37 @@ class RpcMockTestCase(unittest.TestCase):
         return self.rpc_mock.mock_calls
 
 
+class MockedStaticServiceRegistry(StaticServiceRegistry):
+
+    class ServiceCls(Service):
+
+        def connect(self):
+            instance = next(six.itervalues(self.instances))
+            print '**********************'
+            print instance
+            return Connection(self.container.server, instance.endpoint)
+
+
 class MockServiceNetwork(object):
     def __init__(self):
         self.service_containers = {}
         self.next_port = 1
-        self.discovery_hub = StaticServiceRegistryHub()
+        self.registry = MockedStaticServiceRegistry()
         self.events = LocalEventSystem()
 
     def add_service(self, cls, interface_name=None, **kwargs):
         kwargs.setdefault('ip', '300.0.0.1')
         kwargs.setdefault('port', self.next_port)
-        self.next_port += 1
-        registry = self.discovery_hub.create_registry()
-        container = MockServiceContainer(registry=registry, events=self.events, **kwargs)
+
+        container = MockServiceContainer(registry=self.registry, events=self.events, **kwargs)
         container.install(cls, interface_name=interface_name)
         self.service_containers[container.endpoint] = container
         container._mock_network = self
+
+        self.registry.register('mock://{ip}:{port}'.format(**kwargs))
+
+        self.next_port += 1
+
         return container
 
     def start(self):

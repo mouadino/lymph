@@ -7,9 +7,6 @@ class StaticServiceRegistryHub(object):
         self.containers = []
         self.registry = {}
 
-    def create_registry(self):
-        return StaticServiceRegistry(self)
-
     def lookup(self, service, **kwargs):
         service_name = service.name
         try:
@@ -17,7 +14,7 @@ class StaticServiceRegistryHub(object):
             for container in containers:
                 service.update(container.identity, endpoint=container.endpoint)
         except KeyError:
-            raise LookupFailure(None)
+            raise LookupFailure(service_name)
         return service
 
     def register(self, service_name, container):
