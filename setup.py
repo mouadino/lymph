@@ -8,26 +8,26 @@ with open('README.rst') as f:
     description = f.read()
 
 install_requires = [
-    'docopt>=0.6.1',
-    'kazoo>=1.3.1',
-    'kombu>=3.0.16',
+    'docopt',
+    'kazoo',
+    'kombu',
     'gevent',
-    'msgpack-python>=0.4.0',
-    'psutil>=2.1.1',
-    'PyYAML>=3.11',
-    'pyzmq>=14.3.0',
-    'redis>=2.9.1',
-    'setproctitle>=1.1.8',
-    'six>=1.6',
-    'Werkzeug>=0.9.4',
-    'blessings>=1.5.1',
-    'netifaces==0.10.4'
+    'msgpack-python',
+    'psutil',
+    'PyYAML',
+    'pyzmq',
+    'redis',
+    'setproctitle',
+    'six',
+    'Werkzeug',
+    'blessings',
+    'netifaces'
 ]
 
 dependency_links = []
 
 if sys.version_info.major == 2:
-    install_requires.append('monotime>=1.0')
+    install_requires.append('monotime')
 elif sys.version_info.major == 3:
     # Installing Cython==0.20.1 for building gevent
     from setuptools.command.easy_install import main as easy_install
