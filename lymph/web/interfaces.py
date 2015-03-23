@@ -1,14 +1,17 @@
 import logging
 import sys
+import inspect
 
 from werkzeug.contrib.wrappers import DynamicCharsetRequestMixin
 from werkzeug.wrappers import Request as BaseRequest, Response
 from werkzeug.exceptions import HTTPException
+import six
 
 from lymph.core.interfaces import Interface
 from lymph.core import trace
 from lymph.utils.logging import setup_logger
 from lymph.exceptions import SocketNotCreated
+from lymph.utils import import_object
 from lymph.utils.sockets import create_socket
 from lymph.core.trace import Group
 from lymph.web.wsgi_server import LymphWSGIServer
@@ -66,14 +69,13 @@ class WebServiceInterface(Interface):
         request.urls = urls
         try:
             endpoint, args = urls.match()
-            if callable(endpoint):
+            if isinstance(endpoint, six.string_types):
+                endpoint = self._get_endpoint(endpoint)
+
+            if hasattr(endpoint, 'dispatch'):
                 handler = endpoint(self, request)
                 response = handler.dispatch(args)
             else:
-                try:
-                    handler = getattr(self, endpoint)
-                except AttributeError:
-                    raise  # FIXME
                 response = handler(request, **args)
         except HTTPException as e:
             response = e.get_response(request.environ)
@@ -99,6 +101,13 @@ class WebServiceInterface(Interface):
                     raise
                 response = Response('', status=500)
         return response
+
+    def _get_endpoint(self, endpoint):
+        try:
+            return getattr(self, endpoint)
+        except AttributeError:
+            objpath = '.'.join([inspect.getmodule(self).__package__, endpoint])
+            return import_object(objpath)
 
     def get_wsgi_application(self):
         return self.application
