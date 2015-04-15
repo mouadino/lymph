@@ -3,21 +3,14 @@
 Testings API
 ============
 
-
-Philosophy
-----------
-
-
-API
----
-
 .. class:: RpcMockTestCase
 
   Base mixin test class that provice a highlevel interface for mocking remote rpc
   calls.
 
   .. attribute:: rpc_mock_calls
-      A List of the called rpc function mocks.
+
+      A List of the called rpc functions.
 
   .. method:: setup_rpc_mocks(mocks)
 
@@ -39,7 +32,7 @@ API
 
   .. method:: update_rpc_mock(func_name, new_value)
 
-      Update a mock for an already mocked RPC function.
+      Update a mock od an already mocked RPC function.
 
       .. code-block:: python
 
@@ -107,15 +100,44 @@ API
                  )
 
 
-.. class:: LymphServiceTestCase
+.. class:: RPCServiceTestCase
 
-  .. attribute:: client_class = ClientInterface
-  .. attribute:: client_name = 'client'
-  .. attribute:: client_config = {}
-  .. attribute:: service_class = ClientInterface
-  .. attribute:: service_name = 'client'
-  .. attribute:: service_config = {}
+  Test class for testing a unique RPC interface.
 
+  .. attribute:: service_class
+
+    Interface class to test, this attribute is abstract and must supplied by
+    child class.
+
+  .. attribute:: service_config
+
+    Configuration to pass to service when calling ``apply_config()``.
+
+  .. attribute:: client
+
+    Shortcut for getting default ``lymph.Proxy`` instance for the service under test.
+
+  .. method:: get_proxy(**kwargs)
+
+    Return a ``lymph.Proxy`` instance of the service under test.
+
+  .. method:: request(*args, **kwargs)
+
+    Low level method to send a request to service under tests return ``ReplyChannel``
+    instance.
+
+  .. method:: emit(*args, **kwargs)
+
+    Emit an event.
+
+
+.. class:: WebServiceTestCase
+
+  Test class for testing a unique Web interface.
+
+  .. attribute:: client
+
+    Return a Werkzeug test client associated to web interface under test.
 
 
 .. _PyHamcrest: https://pypi.python.org/pypi/PyHamcrest
