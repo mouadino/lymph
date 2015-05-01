@@ -1,10 +1,11 @@
 import textwrap
 import functools
+import time
 
 import six
 
 from lymph.core.decorators import rpc, RPCBase
-from lymph.exceptions import RemoteError, EventHandlerTimeout, Timeout, Nack
+from lymph.exceptions import RemoteError, EventHandlerTimeout, Timeout, Nack, RetryableError
 from lymph.core.components import Component, Componentized, ComponentizedBase
 from lymph.core.monitoring import metrics
 
@@ -67,9 +68,8 @@ class Proxy(Component):
         self.exception_counts = metrics.TaggedCounter('exceptions', {'address': address})
 
     def _call(self, __name, **kwargs):
-        channel = self._container.send_request(self._address, __name, kwargs)
         try:
-            return channel.get(timeout=self._timeout).body
+            return self.__call(__name, **kwargs)
         except RemoteError as e:
             error_type = str(e.__class__)
             self.exception_counts.incr(name=e.__class__.__name__)
@@ -82,6 +82,24 @@ class Proxy(Component):
         except Nack:
             self.exception_counts.incr(name='nack')
             raise
+
+    def __call(self, __name, **kwargs):
+        start = time.monotonic()
+        def timeout():
+            return self._timeout - (time.monotonic() - start)
+        try:
+            channel = self._container.send_request(self._address, __name, kwargs)
+        except RetryableError as ex:
+            channel = self._try_send_message(timeout, ex.request)
+        return channel.get(timeout=timeout()).body
+
+    def _try_send_message(self, timeout, msg):
+        while timeout() > 0:
+            try:
+                return self._container.send_message(msg)
+            except RetryableError as ex:
+                pass
+        raise Timeout(msg)
 
     def __getattr__(self, name):
         try:

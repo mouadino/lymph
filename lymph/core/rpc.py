@@ -151,7 +151,7 @@ class ZmqRPCServer(Component):
             if connection.is_alive():
                 choices.append(instance.endpoint)
         if not choices:
-            raise NotConnected('Not connected to %s' % service.name)
+            return
         return random.choice(choices)
 
     def send_request(self, service, subject, body, headers=None):
@@ -162,12 +162,15 @@ class ZmqRPCServer(Component):
             source=self.endpoint,
             headers=self.prepare_headers(headers),
         )
+        return self.send_message(service, msg)
+
+    def send_message(self, service, msg):
         channel = RequestChannel(msg, self)
         self.channels[msg.id] = channel
-        try:
-            endpoint = self._pick_endpoint(service)
-        except NotConnected:
-            logger.error('cannot send message (no instance): %s', msg)
+        endpoint = self._pick_endpoint(service)
+        if not endpoint:
+            logger.debug('cannot send message (no instance): %s', msg)
+            raise NotConnected(msg)
         else:
             self._send_message(endpoint, msg)
         return channel

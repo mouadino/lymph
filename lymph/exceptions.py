@@ -12,6 +12,10 @@ class RpcRequestError(RpcError):
         super(RpcError, self).__init__(*args, **kwargs)
 
 
+class RetryableError(RpcRequestError):
+    pass
+
+
 class Timeout(RpcRequestError):
     pass
 
@@ -54,7 +58,7 @@ class SocketNotCreated(Exception):
     pass
 
 
-class NotConnected(Exception):
+class NotConnected(RetryableError):
     pass
 
 

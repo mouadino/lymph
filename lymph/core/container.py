@@ -181,6 +181,10 @@ class ServiceContainer(Componentized):
         service = self.lookup(address)
         return self.server.send_request(service, subject, body, headers=headers)
 
+    def send_message(self, msg):
+        service = self.lookup(address)
+        return self.server.send_message(service, msg)
+
     def handle_request(self, channel):
         interface_name, func_name = channel.request.subject.rsplit('.', 1)
         try:
