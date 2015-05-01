@@ -186,9 +186,9 @@ class ServiceContainer(Componentized):
         event = Event(event_type, payload, source=self.identity, headers=headers)
         self.event_system.emit(event, **kwargs)
 
-    def send_request(self, address, subject, body, headers=None):
+    def send_request(self, address, subject, body, headers=None, msg_id=None):
         service = self.lookup(address)
-        return self.server.send_request(service, subject, body, headers=headers)
+        return self.server.send_request(service, subject, body, headers=headers, msg_id=msg_id)
 
     def handle_request(self, channel):
         interface_name, func_name = channel.request.subject.rsplit('.', 1)

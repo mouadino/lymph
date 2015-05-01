@@ -7,9 +7,13 @@ class RpcError(Exception):
 
 
 class RpcRequestError(RpcError):
-    def __init__(self, request, *args, **kwargs):
+    def __init__(self, request=None, *args, **kwargs):
         self.request = request
         super(RpcError, self).__init__(*args, **kwargs)
+
+
+class RetryableError(RpcRequestError):
+    pass
 
 
 class Timeout(RpcRequestError):
@@ -58,7 +62,7 @@ class NoSharedSockets(Exception):
     pass
 
 
-class NotConnected(Exception):
+class NotConnected(RetryableError):
     pass
 
 

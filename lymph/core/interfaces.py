@@ -7,6 +7,8 @@ from lymph.core.decorators import rpc, RPCBase
 from lymph.exceptions import RemoteError, EventHandlerTimeout, Timeout, Nack
 from lymph.core.components import Component, Componentized, ComponentizedBase
 from lymph.core.monitoring import metrics
+from lymph.core.retry import Retry
+from lymph.utils import make_id
 
 import gevent
 from gevent.event import AsyncResult
@@ -57,12 +59,12 @@ class ProxyMethod(object):
 
 
 class Proxy(Component):
-    def __init__(self, container, address, timeout=REQUEST_TIMEOUT, namespace='', error_map=None):
+    def __init__(self, container, address, timeout=REQUEST_TIMEOUT, retry=None, namespace='', error_map=None):
         super(Proxy, self).__init__()
         self._container = container
         self._address = address
         self._method_cache = {}
-        self._timeout = timeout
+        self._retry = retry or Retry(timeout)
         self._namespace = namespace or address
         self._error_map = error_map or {}
 
@@ -70,9 +72,9 @@ class Proxy(Component):
         self.exception_counts = metrics.TaggedCounter('exceptions', {'address': address})
 
     def _call(self, __name, **kwargs):
-        channel = self._container.send_request(self._address, __name, kwargs)
+        msg_id = make_id()
         try:
-            return channel.get(timeout=self._timeout).body
+            return self._retry.execute(self._send_request, __name, kwargs, msg_id)
         except RemoteError as e:
             error_type = str(e.__class__)
             self.exception_counts.incr(name=e.__class__.__name__)
@@ -85,6 +87,10 @@ class Proxy(Component):
         except Nack:
             self.exception_counts.incr(name='nack')
             raise
+
+    def _send_request(self, name, kwargs, msg_id):
+        channel = self._container.send_request(self._address, name, kwargs, msg_id=msg_id)
+        return channel.get().body
 
     def __getattr__(self, name):
         try:

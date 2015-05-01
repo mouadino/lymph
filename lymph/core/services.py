@@ -45,6 +45,9 @@ class Service(observables.Observable):
     def __iter__(self):
         return six.itervalues(self.instances)
 
+    def __str__(self):
+        return '<Service: %s>' % self.name
+
     def __len__(self):
         return len(self.instances)
 
