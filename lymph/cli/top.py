@@ -39,12 +39,12 @@ class TopCommand(Command):
 
             with self.terminal.fullscreen():
                 while True:
-                    table.instances = self.get_instances()
+                    table.instances = self.get_live_instances()
                     table.display(self.terminal)
                     time.sleep(1)
                     print(self.terminal.clear, end='')
 
-    def get_instances(self):
+    def get_live_instances(self):
         self.client = Client.from_config(self.config)
         services = self.client.container.discover()
         instances = []
@@ -62,12 +62,21 @@ class TopCommand(Command):
         return {name: value for name, value, _ in metrics}
 
 
+class Debugger(object):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, tb):
+        if type not in (KeyboardInterrupt, SystemExit):
+            traceback.print_exception(type, value, tb, file=sys.stdout)
+
+
 class Table(object):
 
-    def __init__(self, headers, sort_by="-name"):
+    def __init__(self, headers, sort_by=None):
         self.headers = headers
         self._instances = []
-        self.sort_by = sort_by
+        self.sort_by = sort_by or "-name"
 
     @property
     def sort_by(self):
@@ -111,12 +120,3 @@ class InstanceInfo(collections.namedtuple('InstanceInfo', 'name endpoint metrics
 
     def __getattr__(self, name):
         return self.metrics[name]
-
-
-class Debugger(object):
-    def __enter__(self):
-        return self
-
-    def __exit__(self, type, value, tb):
-        if type not in (KeyboardInterrupt, SystemExit):
-            traceback.print_exception(type, value, tb, file=sys.stdout)
