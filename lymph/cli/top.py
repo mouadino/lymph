@@ -19,7 +19,6 @@ from lymph.exceptions import Timeout
 
 
 UNAVAILABLE = object()
-QUIT = object()
 
 
 def hide(excepts=(KeyboardInterrupt, SystemExit)):
@@ -84,7 +83,6 @@ class TopCommand(Command):
 
     """
     # TODO: Filtering --name, --fqdn.
-    # TODO: h for help !
     # TODO: config file i.e. .toprc for default columns !?
     # TODO: -c columns to show.
 
@@ -105,7 +103,7 @@ class TopCommand(Command):
         self.current_command = UserCommand()
         self.poller = MetricsPoller(Client.from_config(self.config))
 
-    @hide(Exception)
+    @hide()
     def run(self):
         self._parse_args()
         self.poller.run()
@@ -121,19 +119,19 @@ class TopCommand(Command):
             try:
                 self.table.limit = int(limit) + 1
             except ValueError:
-                sys.exit('-n must be integer')
+                raise SystemExit('-n must be integer')
         interval = self.args.get('-i')
         if interval:
             try:
                 self.poller.interval = int(interval)
             except ValueError:
-                sys.exit('-i must be integer')
+                raise SystemExit('-i must be integer')
         timeout = self.args.get('-t')
         if timeout:
             try:
                 self.poller.timeout = int(timeout)
             except ValueError:
-                sys.exit('-t must be integer')
+                raise SystemExit('-t must be integer')
 
     def _top(self):
         while True:
@@ -149,20 +147,43 @@ class TopCommand(Command):
 
     def _on_user_input(self):
         command = self.current_command.read(self.terminal)
-        if command is QUIT:
-            raise SystemExit()
         if command:
-            # TODO: Currently we only support 'sort by'.
-            try:
-                self.table.sort_by = command
-            except ValueError:
-                self.current_command.error = 'invalid sort by: %s' % command
+            if command is QUIT:
+                raise SystemExit()
+            elif command is HELP:
+                self._help()
+            else:
+                # TODO: Currently we only support 'sort by'.
+                try:
+                    self.table.sort_by = command
+                except ValueError:
+                    self.current_command.error = 'invalid sort by: %s' % command
+
+    def _help(self):
+        t = self.terminal
+        with t.fullscreen():
+            print(t.underline('Command') + t.move_x(20) + t.underline('Description'))
+            for name, cmd in UserCommand.allowed_commands.items():
+                print(name + t.move_x(20) + cmd.help)
+            with t.location(0, t.height - 1):
+                print('Press any key to continue...', end='')
+            sys.stdout.flush()
+            key_pressed = False
+            while not key_pressed:
+                key_pressed = self.current_command.getch(t)
+
+# Commands.
+QUIT = object()
+HELP = object()
 
 
 class UserCommand(object):
 
+    Command = collections.namedtuple('Command', 'prefix help')
+
     allowed_commands = {
-        'o': 'order',
+        'o': Command('order', 'Set sort by column e.g. +name'),
+        '?': Command('', 'Show this help message')
     }
 
     def __init__(self):
@@ -177,8 +198,7 @@ class UserCommand(object):
         return '%s: %s' % (self._name, self._buffer) if self._name else ''
 
     def read(self, terminal):
-        with terminal.cbreak():
-            char = terminal.inkey(timeout=.1)
+        char = self.getch(terminal)
         if not char:
             return
         if char.name == 'KEY_ESCAPE':
@@ -194,10 +214,17 @@ class UserCommand(object):
             else:
                 self._buffer += char
         else:
+            self.error = ''
+            if str(char) == '?':
+                return HELP
             try:
-                self._name = self.allowed_commands[str(char)]
+                self._name = self.allowed_commands[str(char)].prefix
             except KeyError:
                 pass
+
+    def getch(self, terminal):
+        with terminal.cbreak():
+            return terminal.inkey(timeout=.1)
 
     def clear(self):
         self._name = ''
