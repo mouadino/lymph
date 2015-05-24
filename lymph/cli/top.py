@@ -83,9 +83,7 @@ class TopCommand(Command):
     {COMMON_OPTIONS}
 
     """
-    # TODO: Filtering --name, --fqdn.
     # TODO: config file i.e. .toprc for default columns !?
-    # TODO: -c columns to show.
 
     short_description = 'Display and update sorted metrics about services.'
     columns = [
@@ -213,8 +211,6 @@ class UserCommand(object):
         char = self.getch(terminal)
         if not char:
             return
-        if char.name == 'KEY_ESCAPE':
-            return QUIT
         if self._name:
             self.error = ''
             if char.name == 'KEY_ENTER':
@@ -223,10 +219,14 @@ class UserCommand(object):
                 return cmd
             elif char.name == 'KEY_DELETE':
                 self._buffer = self._buffer[:-1]
+            elif char.name == 'KEY_ESCAPE':
+                self.clear()
             else:
                 self._buffer += char
         else:
             self.error = ''
+            if char.name == 'KEY_ESCAPE':
+                return QUIT
             if str(char) == '?':
                 return HELP
             try:
