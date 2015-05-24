@@ -18,18 +18,17 @@ from lymph.utils import Undefined
 from lymph.exceptions import Timeout
 
 
-UNAVAILABLE = object()
-
-
-def hide(excepts=(KeyboardInterrupt, SystemExit)):
-    def _hide(func):
-        def inner(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except excepts:
-                traceback.print_exc(file=sys.stdout)
-        return inner
-    return _hide
+def redirect_traceback(func):
+    # With blessed stderr is disable, this show traceback in stdout, ignoring
+    # SystemExit.
+    def _inner(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except SystemExit:
+            pass
+        except Exception:
+            traceback.print_exc(file=sys.stdout)
+    return _inner
 
 
 class _Prettifier(object):
@@ -68,13 +67,15 @@ def format_memory_usage(value):
 
 class TopCommand(Command):
     """
-    Usage: lymph top [--order=<column> | -o <column>] [-n <ninst>] [-i <interval>] [-t <timeout>] [options]
+    Usage: lymph top [--order=<column> | -o <column>] [--fqdn=<fqdn>] [--name=<name>] [-n <ninst>] [-i <interval>] [-t <timeout>] [options]
 
     Display and update sorted metrics about services.
 
     Options:
 
       --order=<column>, -o <column>           Order a specific column.
+      --fqdn=<fqdn>                           Show only metrics comming from machine with given full qualified domain name.
+      --name=<name>                           Show only metrics comming from service with given name.
       -n <ninsts>                             Only display up to <ninsts> instances.
       -i <interval>                           Set interval between polling metrics.
       -t <timeout>                            Lymph request timeout.
@@ -103,7 +104,7 @@ class TopCommand(Command):
         self.current_command = UserCommand()
         self.poller = MetricsPoller(Client.from_config(self.config))
 
-    @hide()
+    @redirect_traceback
     def run(self):
         self._parse_args()
         self.poller.run()
@@ -114,18 +115,29 @@ class TopCommand(Command):
         sort_by = self.args.get('--order')
         if sort_by:
             self.table.sort_by = sort_by
+
+        fqdn = self.args.get('--fqdn')
+        if fqdn:
+            self.poller.fqdn = fqdn
+
+        name = self.args.get('--name')
+        if name:
+            self.poller.name = name
+
         limit = self.args.get('-n')
         if limit:
             try:
                 self.table.limit = int(limit) + 1
             except ValueError:
                 raise SystemExit('-n must be integer')
+
         interval = self.args.get('-i')
         if interval:
             try:
                 self.poller.interval = int(interval)
             except ValueError:
                 raise SystemExit('-i must be integer')
+
         timeout = self.args.get('-t')
         if timeout:
             try:
@@ -238,6 +250,7 @@ class Table(object):
         self.limit = limit
         self._prettify = prettify
         self._instances = {}
+        self._metrics_received = False
         self.sort_by = sort_by or '-name'
 
     @property
@@ -263,11 +276,8 @@ class Table(object):
 
     @instances.setter
     def instances(self, new_instances):
-        for endpoint, info in new_instances.items():
-            if info.metrics is UNAVAILABLE:
-                self._instances.pop(endpoint, None)
-            else:
-                self._instances[endpoint] = info
+        self._metrics_received = True
+        self._instances = new_instances
 
     def display(self, terminal):
         self._display_headers(terminal)
@@ -293,7 +303,10 @@ class Table(object):
                 values.append((self._prettify(name, value), size))
             print(' '.join(self._truncate(value, size) for value, size in values))
         if not self.instances:
-            print('Fetching metrics ...')
+            if self._metrics_received:
+                print('No metrics found')
+            else:
+                print('Fetching metrics ...')
         print()  # flush
 
     @staticmethod
@@ -306,19 +319,25 @@ class Table(object):
 
 class MetricsPoller(object):
 
-    def __init__(self, client, timeout=1, interval=2):
+    def __init__(self, client, timeout=1, interval=2, fqdn=None, name=None):
         self._client = client
+        self._instances = {}
+
         self.timeout = timeout
         self.interval = interval
-        self._instances = {}
+        self.fqdn = fqdn
+        self.name = name
         self.running = True
 
     @property
     def instances(self):
         return self._instances
 
-    def run(self):
-        gevent.spawn(self._loop).start()
+    def run(self, *_):
+        greenlet = gevent.spawn(self._loop)
+        # Respawn when greenlet die.
+        greenlet.link_exception(self.run)
+        greenlet.start()
 
     def _loop(self):
         while self.running:
@@ -327,18 +346,28 @@ class MetricsPoller(object):
 
     def _refresh_metrics(self):
         services = self._client.container.discover()
-        for interface_name in sorted(services):
+        alive_endpoints = set()
+        for interface_name in services:
+            if self.name and interface_name != self.name:
+                continue
             interface_instances = self._client.container.lookup(interface_name)
             for instance in interface_instances:
+                if self.fqdn and instance.fqdn != self.fqdn:
+                    continue
                 metrics = self._get_instance_metrics(instance)
+                if not metrics:
+                    continue
                 self._instances[instance.endpoint] = InstanceInfo(interface_name, instance.endpoint, metrics)
+                alive_endpoints.add(instance.endpoint)
+        for endpoint in self._instances:
+            if endpoint not in alive_endpoints:
+                self._instances.pop(endpoint, None)
 
     def _get_instance_metrics(self, instance):
         try:
             metrics = self._client.request(instance.endpoint, 'lymph.get_metrics', {}, timeout=self.timeout).body
         except Timeout:
-            return UNAVAILABLE
-        # TODO: Use tags too ! it include stuff like fqdn and more.
+            return
         return {name: value for name, value, _ in metrics}
 
 
