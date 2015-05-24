@@ -67,7 +67,7 @@ def format_memory_usage(value):
 
 class TopCommand(Command):
     """
-    Usage: lymph top [--order=<column> | -o <column>] [--fqdn=<fqdn>] [--name=<name>] [-n <ninst>] [-i <interval>] [-t <timeout>] [options]
+    Usage: lymph top [--order=<column> | -o <column>] [--fqdn=<fqdn>] [--name=<name>] [--columns=<columns>] [-n <ninst>] [-i <interval>] [-t <timeout>] [options]
 
     Display and update sorted metrics about services.
 
@@ -76,6 +76,7 @@ class TopCommand(Command):
       --order=<column>, -o <column>           Order a specific column.
       --fqdn=<fqdn>                           Show only metrics comming from machine with given full qualified domain name.
       --name=<name>                           Show only metrics comming from service with given name.
+      --columns=<columns>                     Columns to show.
       -n <ninsts>                             Only display up to <ninsts> instances.
       -i <interval>                           Set interval between polling metrics.
       -t <timeout>                            Lymph request timeout.
@@ -83,10 +84,9 @@ class TopCommand(Command):
     {COMMON_OPTIONS}
 
     """
-    # TODO: config file i.e. .toprc for default columns !?
 
     short_description = 'Display and update sorted metrics about services.'
-    columns = [
+    default_columns = [
         ('name', 20),
         ('endpoint', 25),
         ('rusage.maxrss', 20),
@@ -98,7 +98,7 @@ class TopCommand(Command):
     def __init__(self, *args, **kwargs):
         super(TopCommand, self).__init__(*args, **kwargs)
         self.terminal = blessed.Terminal()
-        self.table = Table(self.columns, prettify=prettify)
+        self.table = Table(self.default_columns, prettify=prettify)
         self.current_command = UserCommand()
         self.poller = MetricsPoller(Client.from_config(self.config))
 
@@ -142,6 +142,11 @@ class TopCommand(Command):
                 self.poller.timeout = int(timeout)
             except ValueError:
                 raise SystemExit('-t must be integer')
+
+        columns = self.args.get('--columns')
+        if columns:
+            # TODO: Maybe --columns <name>:<size>,... !?
+            self.table.headers = [(name, 20) for name in columns.split(',') if name]
 
     def _top(self):
         while True:
@@ -246,11 +251,12 @@ class UserCommand(object):
 class Table(object):
 
     def __init__(self, headers, limit=None, prettify=lambda _, value: value, sort_by=None):
-        self._headers = headers
-        self.limit = limit
         self._prettify = prettify
         self._instances = {}
         self._metrics_received = False
+
+        self.headers = headers
+        self.limit = limit
         self.sort_by = sort_by or '-name'
 
     @property
@@ -262,7 +268,7 @@ class Table(object):
         if not sort_by.startswith(("-", "+")):
             sort_by = "-" + sort_by
         order, column = sort_by[0], sort_by[1:]
-        for header, _ in self._headers:
+        for header, _ in self.headers:
             if column == header:
                 self._sort_by = header
                 break
@@ -284,7 +290,7 @@ class Table(object):
         self._display_metrics(terminal)
 
     def _display_headers(self, terminal):
-        for header, size in self._headers:
+        for header, size in self.headers:
             if header == self._sort_by:
                 header += " ▼" if self._ascending else " ▲"
             header = self._truncate(header, size)
@@ -294,7 +300,7 @@ class Table(object):
     def _display_metrics(self, terminal):
         for instance in self.instances[:self.limit]:
             values = []
-            for name, size in self._headers:
+            for name, size in self.headers:
                 try:
                     value = instance.get(name)
                 except KeyError:
