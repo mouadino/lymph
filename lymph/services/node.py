@@ -9,6 +9,7 @@ from six.moves import range
 
 from lymph.core.interfaces import Interface
 from lymph.core.monitoring.metrics import RawMetric
+from lymph.core.decorators import rpc
 from lymph.utils.sockets import create_socket
 
 
@@ -58,6 +59,12 @@ class Process(object):
             yield RawMetric('node.process.cpu', cpu, {'service_type': self.service_type})
         except psutil.NoSuchProcess:
             pass
+
+    def _lymph_dump_(self):
+        return {
+            'pid': self._process.pid,
+            'service_type': self.service_type,
+        }
 
 
 class Node(Interface):
@@ -114,11 +121,8 @@ class Node(Interface):
                 '%s:%s' % (host or self.container.server.ip, port), inheritable=True)
             self.sockets[port] = sock
 
-    def restart_all(self):
-        for process in self.processes:
-            process.stop()
-
     def watch_processes(self):
+        # TODO: Add metrics for number of process restart.
         while True:
             for process in self.processes:
                 try:
@@ -136,3 +140,19 @@ class Node(Interface):
         for process in self.processes:
             for metric in process._get_metrics():
                 yield metric
+
+    @rpc()
+    def get_services(self):
+        return [s[0] for s in self._services]
+
+    @rpc()
+    def get_processes(self, service_type=None):
+        result = []
+        for proc in self.processes:
+            if not service_type or proc.service_type == service_type:
+                result.append(proc)
+        return result
+
+    def restart(self, service_type=None):
+        for proc in self.get_processes(service_type):
+            proc.stop()
