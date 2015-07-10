@@ -29,7 +29,11 @@ class DatetimeSerializer(ExtensionTypeSerializer):
     def serialize(self, obj):
         result = obj.strftime(self.format)
         if obj.tzinfo:
-            return str(obj.tzinfo), result
+            try:
+                zone_name = obj.tzinfo.zone
+            except AttributError:
+                raise ValueError('unable to serialize %s: unknown timezone name' % obj)
+            return zone_name, result
         return result
 
     def deserialize(self, obj):
