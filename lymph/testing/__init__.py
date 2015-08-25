@@ -18,6 +18,7 @@ from lymph.core.monitoring.aggregator import Aggregator
 from lymph.discovery.static import StaticServiceRegistryHub
 from lymph.events.local import LocalEventSystem
 from lymph.client import Client
+from lymph.config import Configuration
 from lymph.utils.sockets import get_unused_port, create_socket
 
 from lymph.testing.mock_helpers import RpcMockTestCase, EventMockTestCase  # noqa
@@ -162,10 +163,10 @@ class ClientInterface(Interface):
 class LymphServiceTestCase(unittest.TestCase):
     client_class = ClientInterface
     client_name = 'client'
-    client_config = {}
+    client_config = Configuration({})
     service_class = ClientInterface
     service_name = 'client'
-    service_config = {}
+    service_config = Configuration({})
 
     def setUp(self):
         warnings.warn("deprecated, please use either RPCServiceTestCase or WebServiceTestCase")
@@ -197,7 +198,7 @@ class LymphServiceTestCase(unittest.TestCase):
 
 @six.add_metaclass(abc.ABCMeta)
 class RPCServiceTestCase(unittest.TestCase):
-    service_config = {}
+    service_config = Configuration({})
 
     def setUp(self):
         super(RPCServiceTestCase, self).setUp()

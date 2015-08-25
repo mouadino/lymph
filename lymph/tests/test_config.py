@@ -113,6 +113,15 @@ class ConfigurableThing(object):
         return cls(dict(config.items()))
 
 
+class AnotherConfigurableThing(object):
+    def __init__(self, config):
+        self.config = config
+
+    @classmethod
+    def from_config(cls, config):
+        return cls(dict(config.items()))
+
+
 class CreateInstanceTest(unittest.TestCase):
     config = Configuration({
         "thing": {
@@ -162,9 +171,13 @@ class GetDependencyTest(unittest.TestCase):
             "thing": {
                 "class": "%s:ConfigurableThing" % __name__
             },
+            "another_thing": {
+                "class": "%s:AnotherConfigurableThing" % __name__
+            },
         },
         "key": {
             "client": "dep:thing",
+            "collection": ["dep:thing", "dep:another_thing"]
         }
     })
 
@@ -176,3 +189,7 @@ class GetDependencyTest(unittest.TestCase):
         instance_1 = self.config.get_instance("key.client")
         instance_2 = self.config.get_instance("key.client")
         self.assertIs(instance_1, instance_2)
+
+    def test_get_dependency(self):
+        instance = self.config.get_dependency("thing")
+        self.assertIsInstance(instance, ConfigurableThing)

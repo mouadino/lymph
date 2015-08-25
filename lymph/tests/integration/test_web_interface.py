@@ -6,6 +6,7 @@ from lymph.testing import WebServiceTestCase
 from lymph.web.interfaces import WebServiceInterface
 from lymph.web.handlers import RequestHandler
 from lymph.web.routing import HandledRule
+from lymph.config import Configuration
 
 
 class RuleHandler(RequestHandler):
@@ -118,3 +119,24 @@ class CustomErrorHandlingWebIntegrationTest(WebIntegrationTest):
         response = self.client.post("/baz/")
         self.assertEqual(response.data.decode("utf8"), "never-gonna-run-around-or-post-you")
         self.assertEqual(response.status_code, 405)
+
+
+class WebMiddlewareIntegrationTest(WebServiceTestCase):
+
+    service_class = Web
+    service_config = Configuration({
+        'dependencies': {
+            'dummy_middleware': {
+                'class': 'lymph.tests.integration.wsgi_middlewares:DummyMiddleware',
+                'flag': '1',
+            },
+        },
+        'middlewares': [
+            'dummy_middleware',
+        ]
+    })
+
+    def test_middleware_header_present(self):
+        response = self.client.options("/")
+        self.assertEqual(response.headers.get('X-LYMPH-TEST'), '1')
+        self.assertEqual(response.status_code, 200)

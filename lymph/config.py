@@ -48,14 +48,13 @@ class ConfigObject(collections.Mapping):
             return self.get(key)
         return value
 
-    def create_instance(self, key, default_class=None, **kwargs):
+    def create_instance(self, key, default_class=None, args=(), **kwargs):
         instance_config = self.setdefault(key, {})
-        return self._create_instance(key, instance_config, default_class=default_class, **kwargs)
+        return self._create_instance(key, instance_config, default_class=default_class, args=args, **kwargs)
 
-    def _create_instance(self, key, instance_config, default_class=None, **kwargs):
+    def _create_instance(self, key, instance_config, default_class=None, args=(), **kwargs):
         if instance_config is None:
             raise ConfigurationError("no config available for %r" % key)
-
         clspath = instance_config.get('class', default_class)
 
         if clspath is None:
@@ -67,28 +66,31 @@ class ConfigObject(collections.Mapping):
             cls = import_object(clspath)
 
         if hasattr(cls, 'from_config'):
-            return cls.from_config(instance_config, **kwargs)
+            return cls.from_config(instance_config, *args, **kwargs)
         else:
             instance_config = copy.deepcopy(to_dict(instance_config))
             instance_config.pop('class', None)
             instance_config.update(kwargs)
-            return cls(**instance_config)
+            return cls(*args, **instance_config)
 
-    def get_instance(self, key, default_class=None, **kwargs):
-        instance_data = self.get(key)
-        if isinstance(instance_data, six.string_types) and instance_data.startswith('dep:'):
-            _, dep_name = instance_data.split(':', 1)
+    def get_instance(self, key, default_class=None, args=(), **kwargs):
+        instance_config = self.get(key)
+        return self._get_instance(key, instance_config, default_class=default_class, args=args, **kwargs)
+
+    def _get_instance(self, key, instance_config, default_class=None, **kwargs):
+        if isinstance(instance_config, six.string_types) and instance_config.startswith('dep:'):
+            _, dep_name = instance_config.split(':', 1)
             return self.get_dependency(dep_name, **kwargs)
 
         instance = self.root._instances_cache.get(key)
         if not instance:
             instance = self._create_instance(
-                key, instance_data, default_class=default_class, **kwargs)
+                key, instance_config, default_class=default_class, **kwargs)
             self.root._instances_cache[key] = instance
         return instance
 
-    def get_dependency(self, key, **kwargs):
-        return self.root.get_instance('dependencies.%s' % key, **kwargs)
+    def get_dependency(self, key, args=(), **kwargs):
+        return self.root.get_instance('dependencies.%s' % key, args=args, **kwargs)
 
 
 class ConfigView(ConfigObject):

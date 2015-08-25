@@ -50,9 +50,14 @@ class WebServiceInterface(Interface):
         super(WebServiceInterface, self).apply_config(config)
         self.http_port = config.get('port')
         self.pool_size = config.get('wsgi_pool_size')
+        self._configure_middlewares(config)
         if not self.http_port:
             self.uses_static_port = False
             self.http_port = sockets.get_unused_port()
+
+    def _configure_middlewares(self, config):
+        for middleware in config.get('middlewares', []):
+            self.application = config.get_dependency(middleware, args=(self.application,))
 
     def get_description(self):
         description = super(WebServiceInterface, self).get_description()
