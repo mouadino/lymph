@@ -9,7 +9,7 @@ class Message(object):
     NACK = b'NACK'
     ERROR = b'ERROR'
 
-    def __init__(self, msg_type, subject, packed_body=None, headers=None, packed_headers=None, msg_id=None, source=None, lazy=False, **kwargs):
+    def __init__(self, msg_type, subject, packed_body=None, headers=None, packed_headers=None, msg_id=None, source=None, **kwargs):
         self.id = msg_id if msg_id else make_id()
         self.type = msg_type
         self.subject = subject
@@ -30,11 +30,6 @@ class Message(object):
             raise TypeError("Message requires either 'body' or 'packed_body'")
 
         self._packed_body = packed_body
-        if not lazy:
-            self.body
-            self.packed_body
-            self.headers
-            self.packed_headers
 
     def is_request(self):
         return self.type == self.REQ

@@ -5,6 +5,7 @@ import six
 
 class Component(object):
     def __init__(self, error_hook=None, pool=None, metrics=None):
+        super(Component, self).__init__()
         self._parent_component = None
         self.__error_hook = error_hook
         self.__pool = pool

@@ -15,6 +15,7 @@ class RequestChannel(Channel):
     def __init__(self, request, server):
         super(RequestChannel, self).__init__(request, server)
         self.queue = gevent.queue.Queue()
+        self._callbacks = []
 
     def recv(self, msg):
         self.queue.put(msg)
@@ -22,6 +23,7 @@ class RequestChannel(Channel):
     def get(self, timeout=1):
         try:
             msg = self.queue.get(timeout=timeout)
+            self._trigger_callbacks(msg)
             if msg.type == Message.NACK:
                 raise Nack(self.request)
             elif msg.type == Message.ERROR:
@@ -34,6 +36,13 @@ class RequestChannel(Channel):
 
     def close(self):
         del self.server.channels[self.request.id]
+
+    def on_new_message(self, func):
+        self._callbacks.append(func)
+
+    def _trigger_callbacks(self, msg):
+        for call in self._callbacks:
+            call(msg)
 
 
 class ReplyChannel(Channel):

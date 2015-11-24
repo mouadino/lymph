@@ -1,5 +1,4 @@
 import textwrap
-import functools
 import logging
 
 import six
@@ -84,7 +83,7 @@ class Proxy(Component):
         self._timeout = timeout
         self._namespace = namespace or address
         self._error_map = error_map or {}
-    
+
     def on_start(self):
         super(Proxy, self).on_start()
         self.timeout_counts = self.metrics.add(metrics.Counter('rpc.timeout_count', {'address': self._address}))

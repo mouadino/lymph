@@ -43,7 +43,7 @@ class InterfaceSkipped(Exception):
 
 
 class ServiceContainer(Componentized):
-    def __init__(self, rpc=None, registry=None, events=None, log_endpoint=None, service_name=None, debug=False, pool=None, worker=False, metrics=None):
+    def __init__(self, rpc=None, registry=None, events=None, log_endpoint=None, service_name=None, debug=False, pool=None, worker=False, metrics=None, tracer=None):
         if pool is None:
             pool = trace.Group()
         if metrics is None:
@@ -69,6 +69,8 @@ class ServiceContainer(Componentized):
         self.metrics.add_tags(service=self.service_name, host=self.fqdn)
         self.monitor = self.install(MonitorPusher, aggregator=self.metrics, endpoint=rpc.ip, interval=5)
 
+        self.tracer = tracer
+
         if self.service_registry:
             self.add_component(self.service_registry)
 
@@ -89,6 +91,7 @@ class ServiceContainer(Componentized):
         kwargs['registry'] = config.create_instance('registry')
 
         kwargs['rpc'] = config.create_instance('rpc', default_class=ZmqRPCServer, ip=kwargs.pop('ip', None), port=kwargs.pop('port', None))
+        kwargs['tracer'] = config.create_instance('tracer', default_class='lymph.tracing.dummy:DummyTracer')
         kwargs['pool'] = config.create_instance('pool', default_class='lymph.core.trace:Group')
         kwargs['metrics'] = config.create_instance('metrics', default_class=Aggregator)
 

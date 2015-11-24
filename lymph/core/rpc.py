@@ -16,12 +16,20 @@ from lymph.core.services import Service
 from lymph.core import services
 from lymph.core import trace
 from lymph.exceptions import NotConnected
+from lymph.utils.observables import Observable
 
 
 logger = logging.getLogger(__name__)
 
+PRE_REQUEST_SEND = 'PRE_REQUEST_SEND'
+POST_REQUEST_SEND = 'POST_REQUEST_SEND'
+PRE_REPLY_SEND = 'PRE_REPLY_SEND'
+POST_REPLY_SEND = 'POST_REPLY_SEND'
+ON_REPLY_RECEIVED = 'ON_REPLY_RECEIVED'
+ON_REQUEST_RECEIVED = 'ON_REQUEST_RECEIVED'
 
-class ZmqRPCServer(Component):
+
+class ZmqRPCServer(Component, Observable):
     def __init__(self, ip='127.0.0.1', port=None, pool=None, connection_config=None):
         super(ZmqRPCServer, self).__init__(pool=pool)
         self.ip = ip
@@ -173,21 +181,26 @@ class ZmqRPCServer(Component):
         except NotConnected:
             logger.error('cannot send message (no instance): %s', msg)
         else:
+            self.notify_observers(PRE_REQUEST_SEND, msg)
             self._send_message(endpoint, msg)
+            self.notify_observers(POST_REQUEST_SEND, msg)
         return channel
 
-    def send_reply(self, msg, body, msg_type=Message.REP, headers=None):
+    def send_reply(self, req_msg, body, msg_type=Message.REP, headers=None):
         reply_msg = Message(
             msg_type=msg_type,
-            subject=msg.id,
+            subject=req_msg.id,
             body=body,
             source=self.endpoint,
             headers=self.prepare_headers(headers),
         )
-        self._send_message(msg.source, reply_msg)
+        self.notify_observers(PRE_REPLY_SEND, req_msg, reply_msg)
+        self._send_message(req_msg.source, reply_msg)
+        self.notify_observers(POST_REPLY_SEND, req_msg, reply_msg)
         return reply_msg
 
     def dispatch_request(self, msg):
+        self.notify_observers(ON_REQUEST_RECEIVED, msg)
         loglevel = self._get_loglevel(msg)
         logger.log(loglevel, '%s source=%s', msg.subject, msg.source)
         start = time.time()
@@ -215,6 +228,7 @@ class ZmqRPCServer(Component):
             except KeyError:
                 logger.debug('reply to unknown subject: %s (msg-id=%s)', msg.subject, msg.id)
                 return
+            self.notify_observers(ON_REPLY_RECEIVED, msg, channel)
             channel.recv(msg)
         else:
             logger.warning('unknown message type: %s (msg-id=%s)', msg.type, msg.id)
